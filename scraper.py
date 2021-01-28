@@ -8,11 +8,10 @@ def scraper(url, resp):
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
-    if (resp.raw_response != None) {
+    if (resp.raw_response != None):
         soup = BeautifulSoup(resp.raw_response, 'html.parser')
         for link in soup.find_all('a'):
             print(link.get('href'))
-    }
     return list()
 
 def is_valid(url):
