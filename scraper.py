@@ -10,6 +10,7 @@ def scraper(url, resp):
 def extract_next_links(url, resp):
     if (resp.raw_response != None):
         soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
+        print(' '.join([text for text in soup.stripped_strings]))
         for link in soup.find_all('a'):
             print(link.get('href'))
     return list()
