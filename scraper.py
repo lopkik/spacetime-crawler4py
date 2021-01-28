@@ -9,7 +9,7 @@ def scraper(url, resp):
 
 def extract_next_links(url, resp):
     if (resp.raw_response != None):
-        soup = BeautifulSoup(resp.raw_response, 'html.parser')
+        soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
         for link in soup.find_all('a'):
             print(link.get('href'))
     return list()
