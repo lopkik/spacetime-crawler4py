@@ -7,14 +7,6 @@ def scraper(url, resp):
     print('hello', url)
     return [link for link in links if is_valid(link)]
 
-def extract_next_links(url, resp):
-    if (resp.raw_response != None):
-        soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
-        print(' '.join([text for text in soup.stripped_strings]))
-        for link in soup.find_all('a'):
-            print(link.get('href'))
-    return list()
-
 def is_valid(url):
     try:
         parsed = urlparse(url)
@@ -33,3 +25,16 @@ def is_valid(url):
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def extract_next_links(url, resp):
+    new_frontier = []
+    if (resp.raw_response != None):
+        soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
+        print(' '.join([text for text in soup.stripped_strings]))
+        for link in soup.find_all('a'):
+            print(is_valid(link.get('href')), link.get('href'))
+            if is_valid(link.get('href')):
+                new_frontier.append(link.get('href'))
+        print('  FRONTIER', new_frontier)
+    return new_frontier
+
