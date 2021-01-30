@@ -1,18 +1,15 @@
 import re
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
-
-netlocSet = {'www.ics.uci.edu', 'www.cs.uci.edu', 'www.informatics.uci.edu', 'www.stat.uci.edu'}
+from collections import defaultdict
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    print('  hello', url)
     # print(' '.join([text for text in soup.stripped_strings]))
     return [link for link in links if is_valid(link)]
 
-def is_path(url):
+def is_path(parsed):
     try:
-        parsed = urlparse(url)
         if len(parsed.path) > 0 and len(parsed.scheme) == 0 and len(parsed.netloc) == 0:
             # print('A PATH APPEARS', parsed.path)
             return True
@@ -21,20 +18,30 @@ def is_path(url):
     except TypeError:
         print ("TypeError for ", parsed)
         raise
+
+def in_domain(parsed):
+    try:
+        ics_match = re.match(r'^([\w\.]*\.)?ics\.uci\.edu$', parsed.netloc)
+        cs_match = re.match(r'^([\w\.]*\.)?cs\.uci\.edu$', parsed.netloc)
+        inf_match = re.match(r'^([\w\.]*\.)?informatics\.uci\.edu$', parsed.netloc)
+        stat_match = re.match(r'^([\w\.]*\.)?stat\.uci\.edu$', parsed.netloc)
+        today_match = re.match(r'^([\w\.]*\.)?today\.uci\.edu$', parsed.netloc) and re.match(r'^\/department\/information_computer_sciences', parsed.path)
+        # if today_match:
+        #     print(' today thing', parsed)
+        return ics_match or cs_match or inf_match or stat_match or today_match
+    except TypeError:
+        print ("TypeError for ", parsed)
+        raise
 '''
-Checks a url if they have a scheme
-if not, then check if they have a valid netloc
+Checks if a url is a path, 
+then checks if its a complete url in the valid domain
 '''
 def is_valid(url):
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in set(["http", "https"]):
-            if parsed.netloc in netlocSet:
-                return True
-            else:
-                return False
-        return not re.match(
-            r".*\.(css|js|bmp|gif|jpe?g|ico"
+
+        is_file = re.match(
+            r".*(\.)?(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
@@ -42,26 +49,42 @@ def is_valid(url):
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+        if is_file: 
+            return False
+
+        if in_domain(parsed) or is_path(parsed):
+            # if in_domain(parsed):
+            #     print('IN DOMAIN NOW', url)
+            # else:
+            #     print('  Path=', url)
+            return True
+        else:
+            return False
 
     except TypeError:
         print ("TypeError for ", parsed)
         raise
 
 def extract_next_links(url, resp):
-    new_frontier = []
+    new_frontier = set()
     if (resp.raw_response != None):
         soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
         
         for link in soup.find_all('a'):
+            # new_url is the urls to test to crawl
             new_url = link.get('href');
-            if is_valid(new_url):
-                print('URL=', is_valid(new_url), new_url)
-                new_frontier.append(new_url)
-            elif is_path(new_url):
-                print('Path=', is_path(new_url), url, '+', new_url)
-                new_frontier.append(urljoin(url, new_url))
-            else:
-                print('DIDNT QUALIFY:', new_url)
-        print('  FRONTIER', new_frontier)
-    return []
+            parsed = urlparse(new_url)
+
+            if type(new_url) == str and is_valid(new_url):
+                if is_path(parsed):
+                    if len(urlparse(url).path) == 0:
+                        new_frontier.add(url + new_url)
+                elif len(parsed.fragment) > 0:
+                    new_frontier.add(new_url[:new_url.index('#')])
+                else:
+                    new_frontier.add(new_url)
+            # else:
+            #     print('Invalid:', new_url, urlparse(new_url).netloc)
+        # print('  FRONTIER', new_frontier)
+    return list(new_frontier)
 
