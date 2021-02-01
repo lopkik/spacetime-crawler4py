@@ -4,9 +4,12 @@ from bs4 import BeautifulSoup
 from collections import defaultdict
 
 def scraper(url, resp):
-    links = extract_next_links(url, resp)
+    links, words = extract_next_links(url, resp)
+    # tokens = [text for text in soup.stripped_strings]
     # print(' '.join([text for text in soup.stripped_strings]))
-    return [link for link in links if is_valid(link)]
+    # print('past extract')
+    return [link for link in links if is_valid(link)], words
+    # return [], words
 
 def is_path(parsed):
     try:
@@ -23,7 +26,7 @@ def in_domain(parsed):
     try:
         ics_match = re.match(r'^([\w\.]*\.)?ics\.uci\.edu$', parsed.netloc)
         cs_match = re.match(r'^([\w\.]*\.)?cs\.uci\.edu$', parsed.netloc)
-        inf_match = re.match(r'^([\w\.]*\.)?informatics\.uci\.edu$', parsed.netloc)
+        inf_match = re.match(r'^([\w\.]*\.)?informatics\.uci\.edu$', parsed.netloc) and re.match(r'^\/files.*', parsed.path) == None
         stat_match = re.match(r'^([\w\.]*\.)?stat\.uci\.edu$', parsed.netloc)
         today_match = re.match(r'^([\w\.]*\.)?today\.uci\.edu$', parsed.netloc) and re.match(r'^\/department\/information_computer_sciences', parsed.path)
         # if today_match:
@@ -42,7 +45,7 @@ def is_valid(url):
 
         is_file = re.match(
             r".*(\.)?(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|tiff?|mid|mp2|mp3|mp4"
+            + r"|png|tiff?|mid|mp2|mp3|mp4|ppsx"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
@@ -66,9 +69,13 @@ def is_valid(url):
         raise
 
 def extract_next_links(url, resp):
+    # print('extract')
     new_frontier = set()
+    words = []
+    # print(resp.raw_response.content)
     if (resp.raw_response != None):
         soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
+        words = (' '.join([text for text in soup.stripped_strings])).split()
         
         for link in soup.find_all('a'):
             # new_url is the urls to test to crawl
@@ -79,6 +86,8 @@ def extract_next_links(url, resp):
                 if is_path(parsed):
                     if len(urlparse(url).path) == 0:
                         new_frontier.add(url + new_url)
+                elif len(parsed.query) > 0:
+                    new_frontier.add(new_url[:new_url.index('?')])
                 elif len(parsed.fragment) > 0:
                     new_frontier.add(new_url[:new_url.index('#')])
                 else:
@@ -86,5 +95,31 @@ def extract_next_links(url, resp):
             # else:
             #     print('Invalid:', new_url, urlparse(new_url).netloc)
         # print('  FRONTIER', new_frontier)
-    return list(new_frontier)
+    return list(new_frontier), words
 
+def simhash(word_weights):
+    v = [0]*32
+    for k in word_weights.keys():
+        # get the 32 bit binary rep of pythons hash for each word
+        binhashstr = str(bin(hash(k) % 2**32))[2:]
+        binhashstr = binhashstr.rjust(32, '0')
+        # add weights to v 
+        for i, bit in enumerate(binhashstr):
+            if bit == '1':
+                v[i] += word_weights[k]
+            else:
+                v[i] -= word_weights[k]
+
+    page_hash = ''.join(['1' if bit > 0 else '0' for bit in v])
+    return page_hash
+
+def similarity(parent_url, tbd_url, page_hash_dict):
+    parent_hash = page_hash_dict[parent_url]
+    tbd_hash = page_hash_dict[tbd_url]
+    print('SIMILARITY:', parent_hash, tbd_hash)
+    sum_equal = 0
+    for i in range(32):
+        if parent_hash[i] == tbd_hash[i]:
+            sum_equal += 1
+    
+    return sum_equal / 32

@@ -27,13 +27,13 @@ class Frontier(object):
         self.save = shelve.open(self.config.save_file)
         if restart:
             for url in self.config.seed_urls:
-                self.add_url(url)
+                self.add_url('', url)
         else:
             # Set the frontier state with contents of save file.
             self._parse_save_file()
             if not self.save:
                 for url in self.config.seed_urls:
-                    self.add_url(url)
+                    self.add_url('', url)
 
     def _parse_save_file(self):
         ''' This function can be overridden for alternate saving techniques. '''
@@ -41,7 +41,7 @@ class Frontier(object):
         tbd_count = 0
         for url, completed in self.save.values():
             if not completed and is_valid(url):
-                self.to_be_downloaded.append(url)
+                self.to_be_downloaded.append(('', url))
                 tbd_count += 1
         self.logger.info(
             f"Found {tbd_count} urls to be downloaded from {total_count} "
@@ -53,16 +53,19 @@ class Frontier(object):
         except IndexError:
             return None
 
-    def add_url(self, url):
-        url = normalize(url)
+    def add_url(self, parent_url, scraped_url):
+        url = normalize(scraped_url)
         urlhash = get_urlhash(url)
+        # print('      add url:          ', url, '- urlhash:', urlhash)
         if urlhash not in self.save:
             self.save[urlhash] = (url, False)
             self.save.sync()
-            self.to_be_downloaded.append(url)
+            self.to_be_downloaded.append((parent_url, scraped_url))
     
     def mark_url_complete(self, url):
+        url = normalize(url)
         urlhash = get_urlhash(url)
+        # print('      mark complete url:', url, '- urlhash:', urlhash)
         if urlhash not in self.save:
             # This should not happen.
             self.logger.error(
