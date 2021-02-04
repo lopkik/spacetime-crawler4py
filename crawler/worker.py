@@ -28,8 +28,9 @@ class Worker(Thread):
         page_hash_dict = dict()
 
         while True:
-            parent_url ,tbd_url = self.frontier.get_tbd_url()
-            if not tbd_url:
+            urls = self.frontier.get_tbd_url()
+
+            if not urls:
                 self.logger.info("Frontier is empty. Stopping Crawler.")
                 print('  Unique Link Count:    ', len(unique_link_set))
                 print('  Max Word Count URL:   ', max_word_count)
@@ -40,6 +41,8 @@ class Worker(Thread):
                 for k, v in sorted(subdomain_dict.items(), key=lambda x: x[0]):
                     print(' ', k, '\t', v)
                 break
+            
+            parent_url ,tbd_url = urls
             resp = download(tbd_url, self.config, self.logger)
             self.logger.info(
                 f"Downloaded {tbd_url}, status <{resp.status}>, "
@@ -49,7 +52,7 @@ class Worker(Thread):
             counter += 1
             # try to move this stuff below into scraper function
             # 1 
-            unique_link_set = unique_link_set.union(set(scraped_urls))
+            unique_link_set.add(tbd_url)
             # 2 find and track max_word_count url and count
             stop_words = set(stopwords.words('english'))
             tokens = [w.lower().strip(string.punctuation) for w in words if not w.lower().strip(string.punctuation) in stop_words and re.match(r'^[\w-]+$', w.strip(string.punctuation))]
@@ -69,8 +72,8 @@ class Worker(Thread):
             print('  Link Scraped Counter:', counter)
             print('  Unique Link Count:   ', len(unique_link_set))
             print('  Max Word Count URL:  ', max_word_count)
-            print('  Word Freq Length:    ', len(word_freq_dict))
-            print('  Subdomain Length:    ', len(subdomain_dict))
+            # print('  Word Freq Length:    ', len(word_freq_dict))
+            # print('  Subdomain Length:    ', len(subdomain_dict))
             # print('  page_hash_dict:      ', page_hash_dict)
 
             # get the hash value for the page
@@ -82,7 +85,7 @@ class Worker(Thread):
             # if tbd_url is a seed url, put all scraped urls in frontier
             #   else checkif not similar to parent url
             #       
-            if parent_url == '' or sim_score <= 0.85:
+            if parent_url == '' or sim_score <= 0.90:
                 for scraped_url in scraped_urls:
                     self.frontier.add_url(tbd_url, scraped_url)
                 self.frontier.mark_url_complete(tbd_url)

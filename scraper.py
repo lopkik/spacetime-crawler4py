@@ -45,7 +45,7 @@ def is_valid(url):
 
         is_file = re.match(
             r".*(\.)?(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|tiff?|mid|mp2|mp3|mp4|ppsx"
+            + r"|png|tiff?|mid|mp2|mp3|mp4|ppsx|Z|ps\.z"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
             + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
@@ -97,11 +97,20 @@ def extract_next_links(url, resp):
         # print('  FRONTIER', new_frontier)
     return list(new_frontier), words
 
+def my_word_hash(word):
+    word_hash = 0
+    for i, c in enumerate(word):
+        word_hash += ord(c) * (i+1)
+    # multiply by a large prime number from bigprimes.org
+    prime = 8568101029
+    word_hash = (word_hash * prime) % 2**32
+    return word_hash
+
 def simhash(word_weights):
     v = [0]*32
     for k in word_weights.keys():
         # get the 32 bit binary rep of pythons hash for each word
-        binhashstr = str(bin(hash(k) % 2**32))[2:]
+        binhashstr = str(bin(my_word_hash(k)))[2:]
         binhashstr = binhashstr.rjust(32, '0')
         # add weights to v 
         for i, bit in enumerate(binhashstr):
@@ -116,7 +125,7 @@ def simhash(word_weights):
 def similarity(parent_url, tbd_url, page_hash_dict):
     parent_hash = page_hash_dict[parent_url]
     tbd_hash = page_hash_dict[tbd_url]
-    print('SIMILARITY:', parent_hash, tbd_hash)
+    # print('SIMILARITY:', parent_hash, tbd_hash)
     sum_equal = 0
     for i in range(32):
         if parent_hash[i] == tbd_hash[i]:
